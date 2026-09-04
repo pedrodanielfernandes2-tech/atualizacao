@@ -429,9 +429,18 @@ const SUPABASE_ANON_KEY = sb_publishable_GO8wtvQaIp2jO_2wD342zw_rHU7v4jM;
 /* ====================================================== */
 
 let supabase = null;
-if(SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 20){
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-} else {
+try{
+  if(SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 20 && window.supabase){
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  } else {
+    document.getElementById('config-banner').textContent = window.supabase
+      ? '⚠️ Configure as credenciais do Supabase no início do arquivo (SUPABASE_URL e SUPABASE_ANON_KEY) para a página funcionar.'
+      : '⚠️ Não foi possível carregar a biblioteca do Supabase (verifique sua conexão com a internet e recarregue a página).';
+    document.getElementById('config-banner').style.display = 'block';
+  }
+} catch(e){
+  console.error('Erro ao iniciar o Supabase:', e);
+  document.getElementById('config-banner').textContent = '⚠️ Erro ao conectar ao Supabase. Verifique a URL e a chave no início do arquivo.';
   document.getElementById('config-banner').style.display = 'block';
 }
 
@@ -472,9 +481,19 @@ function mostrarErro(id, texto){
   el.style.display = 'inline';
 }
 function esconderErro(id){ document.getElementById(id).style.display = 'none'; }
+function supabaseOk(){
+  if(!supabase){
+    alert('A conexão com o banco de dados não está configurada corretamente. Verifique SUPABASE_URL e SUPABASE_ANON_KEY no início do arquivo.');
+    return false;
+  }
+  return true;
+}
 
 async function loadAll(){
-  if(!supabase) return;
+  if(!supabase){
+    document.getElementById('lista-agenda').innerHTML = '<div class="empty">Não foi possível conectar ao banco de dados. Configure SUPABASE_URL e SUPABASE_ANON_KEY.</div>';
+    return;
+  }
   const [c, g, p, a] = await Promise.all([
     supabase.from('clientes').select('*'),
     supabase.from('gps').select('*'),
@@ -743,6 +762,7 @@ function renderDashboard(){
 }
 
 async function criarCliente(){
+  if(!supabaseOk()) return;
   const nome = document.getElementById('cl-nome').value.trim();
   if(!nome){ mostrarErro('cl-error', 'Informe o nome do cliente.'); return; }
   esconderErro('cl-error');
@@ -757,12 +777,14 @@ async function criarCliente(){
 }
 
 async function removerCliente(id){
+  if(!supabaseOk()) return;
   const { error } = await supabase.from('clientes').delete().eq('id', id);
   if(error){ alert('Não foi possível remover o cliente.'); console.error(error); return; }
   await loadAll();
 }
 
 async function criarGP(){
+  if(!supabaseOk()) return;
   const nome = document.getElementById('gp-nome').value.trim();
   const email = document.getElementById('gp-email').value.trim();
   if(!nome){ mostrarErro('gp-error', 'Informe o nome do GP.'); return; }
@@ -779,12 +801,14 @@ async function criarGP(){
 }
 
 async function removerGP(id){
+  if(!supabaseOk()) return;
   const { error } = await supabase.from('gps').delete().eq('id', id);
   if(error){ alert('Não foi possível remover o GP.'); console.error(error); return; }
   await loadAll();
 }
 
 async function criarProduto(){
+  if(!supabaseOk()) return;
   const nome = document.getElementById('pr-nome').value.trim();
   if(!nome){ mostrarErro('pr-error', 'Informe o nome do produto.'); return; }
   esconderErro('pr-error');
@@ -799,12 +823,14 @@ async function criarProduto(){
 }
 
 async function removerProduto(id){
+  if(!supabaseOk()) return;
   const { error } = await supabase.from('produtos').delete().eq('id', id);
   if(error){ alert('Não foi possível remover o produto.'); console.error(error); return; }
   await loadAll();
 }
 
 async function criarAgendamento(){
+  if(!supabaseOk()) return;
   const clienteId = document.getElementById('ag-cliente').value;
   const gpId = document.getElementById('ag-gp').value;
   const produtoId = document.getElementById('ag-produto').value;
@@ -833,12 +859,14 @@ async function criarAgendamento(){
 }
 
 async function mudarStatus(id, novoStatus){
+  if(!supabaseOk()) return;
   const { error } = await supabase.from('agendamentos').update({ status: novoStatus }).eq('id', id);
   if(error){ alert('Não foi possível atualizar o status.'); console.error(error); return; }
   await loadAll();
 }
 
 async function removerAgendamento(id){
+  if(!supabaseOk()) return;
   const { error } = await supabase.from('agendamentos').delete().eq('id', id);
   if(error){ alert('Não foi possível remover a atualização.'); console.error(error); return; }
   await loadAll();
