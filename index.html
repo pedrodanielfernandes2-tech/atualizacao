@@ -207,6 +207,14 @@
   }
   .cal-mais{ font-size: 10.5px; color: var(--muted); }
 
+  .stack-row{ margin-bottom: 14px; }
+  .stack-label{ display:flex; justify-content:space-between; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+  .stack-track{ display:flex; height: 14px; border-radius: 6px; overflow:hidden; background: var(--gray-light); }
+  .stack-seg{ height:100%; }
+  .stack-legend{ display:flex; gap: 14px; font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+  .stack-legend span{ display:inline-flex; align-items:center; gap:5px; }
+  .stack-dot{ width:9px; height:9px; border-radius:50%; display:inline-block; }
+
   @media (max-width: 600px){
     .cal-day{ min-height: 54px; padding: 4px; }
     .cal-day-num{ font-size: 11px; }
@@ -281,6 +289,26 @@
         </table>
       </div>
       <div class="empty" id="matriz-empty" style="display:none;">Sem dados suficientes para montar a visão.</div>
+    </div>
+
+    <div class="card">
+      <h2>Atualizado x Desatualizado</h2>
+      <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom:16px;">
+        <div class="stat-card"><div class="stat-label">Em dia</div><div class="stat-value" id="st-emdia" style="color: var(--green);">0</div></div>
+        <div class="stat-card"><div class="stat-label">Desatualizados</div><div class="stat-value" id="st-desatualizado" style="color: var(--danger);">0</div></div>
+        <div class="stat-card"><div class="stat-label">Incompletos</div><div class="stat-value" id="st-incompleto">0</div></div>
+      </div>
+      <div id="chart-versoes"></div>
+      <div class="empty" id="chart-versoes-empty" style="display:none;">Nenhuma versão registrada ainda.</div>
+
+      <h2 style="margin-top:22px;">Por produto</h2>
+      <div class="stack-legend">
+        <span><span class="stack-dot" style="background:var(--green);"></span>Em dia</span>
+        <span><span class="stack-dot" style="background:var(--danger);"></span>Desatualizado</span>
+        <span><span class="stack-dot" style="background:var(--gray-light); border:1px solid var(--line);"></span>Incompleto</span>
+      </div>
+      <div id="chart-versoes-produto"></div>
+      <div class="empty" id="chart-versoes-produto-empty" style="display:none;">Nenhuma versão registrada ainda.</div>
     </div>
 
     <div class="card">
@@ -1015,11 +1043,76 @@ async function removerVersao(id){
   await loadAll();
 }
 
+function renderVersoesDashboard(){
+  let emDia = 0, desatualizado = 0, incompleto = 0;
+  versoes.forEach(v=>{
+    const cmp = compararVersoes(v.versaoAtual, v.versaoMinima);
+    if(cmp === null) incompleto++;
+    else if(cmp < 0) desatualizado++;
+    else emDia++;
+  });
+  document.getElementById('st-emdia').textContent = emDia;
+  document.getElementById('st-desatualizado').textContent = desatualizado;
+  document.getElementById('st-incompleto').textContent = incompleto;
+
+  const chart = document.getElementById('chart-versoes');
+  const empty = document.getElementById('chart-versoes-empty');
+  chart.innerHTML = '';
+  if(!versoes.length){
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  const dados = [
+    { label: 'Em dia', valor: emDia, cor: 'var(--green)' },
+    { label: 'Desatualizados', valor: desatualizado, cor: 'var(--danger)' },
+    { label: 'Incompletos', valor: incompleto, cor: 'var(--gray-light)' }
+  ];
+  const max = Math.max(emDia, desatualizado, incompleto, 1);
+  dados.forEach(d=>{
+    const row = document.createElement('div');
+    row.className = 'bar-row';
+    row.innerHTML = `<div class="bar-label">${d.label}</div><div class="bar-track"><div class="bar-fill" style="width:${(d.valor/max*100)}%; background:${d.cor};"></div></div><div class="bar-value">${d.valor}</div>`;
+    chart.appendChild(row);
+  });
+
+  const prodChart = document.getElementById('chart-versoes-produto');
+  const prodEmpty = document.getElementById('chart-versoes-produto-empty');
+  prodChart.innerHTML = '';
+  if(!versoes.length){
+    prodEmpty.style.display = 'block';
+  } else {
+    prodEmpty.style.display = 'none';
+    produtos.forEach(p=>{
+      const doProduto = versoes.filter(v=>v.produtoId===p.id);
+      if(!doProduto.length) return;
+      let pe=0, pd=0, pi=0;
+      doProduto.forEach(v=>{
+        const cmp = compararVersoes(v.versaoAtual, v.versaoMinima);
+        if(cmp === null) pi++; else if(cmp < 0) pd++; else pe++;
+      });
+      const total = doProduto.length;
+      const row = document.createElement('div');
+      row.className = 'stack-row';
+      row.innerHTML = `
+        <div class="stack-label"><span>${escapeHtml(p.nome)}</span><span>${pe} em dia · ${pd} desatualizado${pd!==1?'s':''} · ${pi} incompleto${pi!==1?'s':''}</span></div>
+        <div class="stack-track">
+          <div class="stack-seg" style="width:${(pe/total*100)}%; background:var(--green);"></div>
+          <div class="stack-seg" style="width:${(pd/total*100)}%; background:var(--danger);"></div>
+          <div class="stack-seg" style="width:${(pi/total*100)}%; background:var(--gray-light);"></div>
+        </div>
+      `;
+      prodChart.appendChild(row);
+    });
+  }
+}
+
 function renderDashboard(){
   document.getElementById('st-clientes').textContent = clientes.length;
   document.getElementById('st-gps').textContent = gps.length;
   document.getElementById('st-total').textContent = agendamentos.length;
   renderMatrix();
+  renderVersoesDashboard();
 
   const agora = new Date();
   const em7dias = new Date(agora.getTime() + 7*24*60*60*1000);
