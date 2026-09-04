@@ -489,6 +489,7 @@
       </div>
       <div class="actions">
         <button class="primary" id="btn-versao" onclick="salvarVersao()">Salvar versão</button>
+        <button class="del" id="btn-cancelar-versao" style="display:none;" onclick="cancelarEdicaoVersao()">Cancelar edição</button>
         <span class="error-msg" id="vr-error"></span>
         <span class="success-msg" id="vr-success">Versão salva.</span>
       </div>
@@ -934,10 +935,37 @@ function renderVersoes(){
       <td>${escapeHtml(v.versaoMinima || '—')}</td>
       <td>${escapeHtml(v.versaoAtual || '—')}</td>
       <td>${situacaoHtml}</td>
-      <td><button class="del" onclick="removerVersao('${v.id}')">Remover</button></td>
+      <td>
+        <button class="del" onclick="editarVersao('${v.id}')">Editar</button>
+        <button class="del" onclick="removerVersao('${v.id}')">Remover</button>
+      </td>
     `;
     tbody.appendChild(tr);
   });
+}
+
+let editandoVersaoId = null;
+
+function editarVersao(id){
+  const v = versoes.find(x=>x.id===id);
+  if(!v) return;
+  editandoVersaoId = id;
+  document.getElementById('vr-cliente').value = v.clienteId;
+  document.getElementById('vr-produto').value = v.produtoId;
+  document.getElementById('vr-minima').value = v.versaoMinima || '';
+  document.getElementById('vr-atual').value = v.versaoAtual || '';
+  document.getElementById('btn-versao').textContent = 'Atualizar versão';
+  document.getElementById('btn-cancelar-versao').style.display = 'inline';
+  document.getElementById('panel-versoes').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function cancelarEdicaoVersao(){
+  editandoVersaoId = null;
+  document.getElementById('vr-minima').value = '';
+  document.getElementById('vr-atual').value = '';
+  document.getElementById('btn-versao').textContent = 'Salvar versão';
+  document.getElementById('btn-cancelar-versao').style.display = 'none';
+  esconderErro('vr-error');
 }
 
 async function salvarVersao(){
@@ -973,6 +1001,9 @@ async function salvarVersao(){
   }
   document.getElementById('vr-minima').value = '';
   document.getElementById('vr-atual').value = '';
+  document.getElementById('btn-versao').textContent = 'Salvar versão';
+  document.getElementById('btn-cancelar-versao').style.display = 'none';
+  editandoVersaoId = null;
   mostrarSucesso('vr-success');
   await loadAll();
 }
