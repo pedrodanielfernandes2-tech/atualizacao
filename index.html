@@ -238,6 +238,7 @@
     <button class="tab-btn" data-tab="clientes">Clientes</button>
     <button class="tab-btn" data-tab="gps">GPs</button>
     <button class="tab-btn" data-tab="produtos">Produtos</button>
+    <button class="tab-btn" data-tab="versoes">Versões</button>
   </nav>
 
   <section class="panel" id="panel-dashboard">
@@ -464,6 +465,45 @@
       <div class="empty" id="produtos-empty" style="display:none;">Nenhum produto cadastrado ainda.</div>
     </div>
   </section>
+
+  <section class="panel" id="panel-versoes">
+    <div class="card">
+      <h2>Registrar versão</h2>
+      <div class="grid">
+        <div class="field">
+          <label for="vr-cliente">Cliente</label>
+          <select id="vr-cliente"></select>
+        </div>
+        <div class="field">
+          <label for="vr-produto">Produto</label>
+          <select id="vr-produto"></select>
+        </div>
+        <div class="field">
+          <label for="vr-minima">Versão mínima exigida</label>
+          <input type="text" id="vr-minima" placeholder="Ex: 4.2.0">
+        </div>
+        <div class="field">
+          <label for="vr-atual">Versão atual do cliente</label>
+          <input type="text" id="vr-atual" placeholder="Ex: 4.1.3">
+        </div>
+      </div>
+      <div class="actions">
+        <button class="primary" id="btn-versao" onclick="salvarVersao()">Salvar versão</button>
+        <span class="error-msg" id="vr-error"></span>
+        <span class="success-msg" id="vr-success">Versão salva.</span>
+      </div>
+      <p class="note">Se já existir um registro para esse cliente + produto, ele será atualizado.</p>
+    </div>
+
+    <div class="card">
+      <h2>Versões cadastradas</h2>
+      <table id="tabela-versoes">
+        <thead><tr><th>Cliente</th><th>Produto</th><th>Mínima</th><th>Atual</th><th>Situação</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="empty" id="versoes-empty" style="display:none;">Nenhuma versão registrada ainda.</div>
+    </div>
+  </section>
 </div>
 
 <script>
@@ -495,6 +535,7 @@ let clientes = [];
 let gps = [];
 let produtos = [];
 let agendamentos = [];
+let versoes = [];
 
 const STATUS_LABELS = {
   pendente: 'Pendente', agendada: 'Agendada', andamento: 'Em andamento',
@@ -541,11 +582,12 @@ async function loadAll(){
     document.getElementById('lista-agenda').innerHTML = '<div class="empty">Não foi possível conectar ao banco de dados. Configure SUPABASE_URL e SUPABASE_ANON_KEY.</div>';
     return;
   }
-  const [c, g, p, a] = await Promise.all([
+  const [c, g, p, a, v] = await Promise.all([
     dbClient.from('clientes').select('*'),
     dbClient.from('gps').select('*'),
     dbClient.from('produtos').select('*'),
-    dbClient.from('agendamentos').select('*')
+    dbClient.from('agendamentos').select('*'),
+    dbClient.from('versoes').select('*')
   ]);
   clientes = c.data || [];
   gps = g.data || [];
@@ -554,6 +596,10 @@ async function loadAll(){
     id: x.id, clienteId: x.cliente_id, gpId: x.gp_id, produtoId: x.produto_id,
     data: x.data, hora: (x.hora||'').slice(0,5), status: x.status, obs: x.obs
   }));
+  versoes = (v.data || []).map(x=>({
+    id: x.id, clienteId: x.cliente_id, produtoId: x.produto_id,
+    versaoMinima: x.versao_minima, versaoAtual: x.versao_atual
+  }));
   renderClientes();
   renderGPs();
   renderProdutos();
@@ -561,6 +607,7 @@ async function loadAll(){
   renderAgenda();
   renderDashboard();
   renderCalendario();
+  renderVersoes();
 }
 
 document.querySelectorAll('.tab-btn').forEach(btn=>{
@@ -571,6 +618,7 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
     if(btn.dataset.tab === 'dashboard') renderDashboard();
     if(btn.dataset.tab === 'calendario') renderCalendario();
+    if(btn.dataset.tab === 'versoes') renderVersoes();
   });
 });
 
@@ -637,6 +685,11 @@ function renderAgendaSelects(){
   flGP.innerHTML = '<option value="">Todos</option>' + gpsOrd.map(g=>`<option value="${g.id}">${escapeHtml(g.nome)}</option>`).join('');
   flProduto.innerHTML = '<option value="">Todos</option>' + produtos.map(p=>`<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join('');
   flCliente.value = flC; flGP.value = flG; flProduto.value = flP;
+
+  const vrCliente = document.getElementById('vr-cliente');
+  const vrProduto = document.getElementById('vr-produto');
+  vrCliente.innerHTML = clientesOrd.length ? clientesOrd.map(c=>`<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('') : '<option value="">Nenhum cliente cadastrado</option>';
+  vrProduto.innerHTML = produtos.length ? produtos.map(p=>`<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join('') : '<option value="">Nenhum produto cadastrado</option>';
 }
 
 function formatarData(iso){
@@ -838,6 +891,97 @@ function selecionarDiaCalendario(iso){
     itens.forEach(item=> lista.appendChild(buildSchedItem(item, true)));
   }
   card.style.display = 'block';
+}
+
+function compararVersoes(a, b){
+  if(!a || !b) return null;
+  const pa = String(a).split('.').map(n=>parseInt(n,10) || 0);
+  const pb = String(b).split('.').map(n=>parseInt(n,10) || 0);
+  const len = Math.max(pa.length, pb.length);
+  for(let i=0; i<len; i++){
+    const na = pa[i] || 0, nb = pb[i] || 0;
+    if(na > nb) return 1;
+    if(na < nb) return -1;
+  }
+  return 0;
+}
+
+function renderVersoes(){
+  const tbody = document.querySelector('#tabela-versoes tbody');
+  tbody.innerHTML = '';
+  document.getElementById('versoes-empty').style.display = versoes.length ? 'none' : 'block';
+
+  const ordenadas = [...versoes].sort((a,b)=>{
+    const nomeA = (clientes.find(c=>c.id===a.clienteId)||{}).nome || '';
+    const nomeB = (clientes.find(c=>c.id===b.clienteId)||{}).nome || '';
+    return nomeA.localeCompare(nomeB, 'pt-BR', { sensitivity: 'base' });
+  });
+
+  ordenadas.forEach(v=>{
+    const cliente = clientes.find(c=>c.id===v.clienteId);
+    const produto = produtos.find(p=>p.id===v.produtoId);
+    const cmp = compararVersoes(v.versaoAtual, v.versaoMinima);
+    let situacaoHtml = '<span class="cell-empty">—</span>';
+    if(cmp !== null){
+      situacaoHtml = cmp < 0
+        ? `<span class="badge badge-cancelada">Desatualizado</span>`
+        : `<span class="badge badge-concluida">Em dia</span>`;
+    }
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(cliente ? cliente.nome : 'Cliente removido')}</td>
+      <td>${escapeHtml(produto ? produto.nome : 'Produto removido')}</td>
+      <td>${escapeHtml(v.versaoMinima || '—')}</td>
+      <td>${escapeHtml(v.versaoAtual || '—')}</td>
+      <td>${situacaoHtml}</td>
+      <td><button class="del" onclick="removerVersao('${v.id}')">Remover</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+async function salvarVersao(){
+  if(!supabaseOk()) return;
+  const clienteId = document.getElementById('vr-cliente').value;
+  const produtoId = document.getElementById('vr-produto').value;
+  const versaoMinima = document.getElementById('vr-minima').value.trim();
+  const versaoAtual = document.getElementById('vr-atual').value.trim();
+
+  if(!clienteId || !produtoId){
+    mostrarErro('vr-error', 'Selecione o cliente e o produto.');
+    return;
+  }
+  if(!versaoMinima && !versaoAtual){
+    mostrarErro('vr-error', 'Informe ao menos uma das versões.');
+    return;
+  }
+  esconderErro('vr-error');
+  const btn = document.getElementById('btn-versao');
+  btn.disabled = true;
+  const { error } = await dbClient.from('versoes').upsert({
+    cliente_id: clienteId,
+    produto_id: produtoId,
+    versao_minima: versaoMinima || null,
+    versao_atual: versaoAtual || null,
+    atualizado_em: new Date().toISOString()
+  }, { onConflict: 'cliente_id,produto_id' });
+  btn.disabled = false;
+  if(error){
+    mostrarErro('vr-error', 'Não foi possível salvar. Tente novamente.');
+    console.error(error);
+    return;
+  }
+  document.getElementById('vr-minima').value = '';
+  document.getElementById('vr-atual').value = '';
+  mostrarSucesso('vr-success');
+  await loadAll();
+}
+
+async function removerVersao(id){
+  if(!supabaseOk()) return;
+  const { error } = await dbClient.from('versoes').delete().eq('id', id);
+  if(error){ alert('Não foi possível remover a versão.'); console.error(error); return; }
+  await loadAll();
 }
 
 function renderDashboard(){
