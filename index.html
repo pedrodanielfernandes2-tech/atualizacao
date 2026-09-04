@@ -781,6 +781,7 @@ function renderCalendario(){
     if(!porDia[a.data]) porDia[a.data] = [];
     porDia[a.data].push(a);
   });
+  Object.values(porDia).forEach(lista => lista.sort((a,b)=> a.hora.localeCompare(b.hora)));
 
   const totalCelulas = Math.ceil((primeiroDiaSemana + diasNoMes) / 7) * 7;
   for(let i = 0; i < totalCelulas; i++){
@@ -807,7 +808,7 @@ function renderCalendario(){
     let chipsHtml = '';
     itensDoDia.slice(0,3).forEach(item=>{
       const cliente = clientes.find(c=>c.id===item.clienteId);
-      chipsHtml += `<div class="cal-chip" style="background:${STATUS_BAR_COLOR[item.status||'pendente']}">${escapeHtml(cliente ? cliente.nome : '—')}</div>`;
+      chipsHtml += `<div class="cal-chip" style="background:${STATUS_BAR_COLOR[item.status||'pendente']}">${item.hora||''} ${escapeHtml(cliente ? cliente.nome : '—')}</div>`;
     });
     if(itensDoDia.length > 3){
       chipsHtml += `<div class="cal-mais">+${itensDoDia.length - 3}</div>`;
