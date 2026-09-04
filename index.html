@@ -215,6 +215,27 @@
   .stack-legend span{ display:inline-flex; align-items:center; gap:5px; }
   .stack-dot{ width:9px; height:9px; border-radius:50%; display:inline-block; }
 
+  .dash-cols{ display:grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  .dash-cols h2{ margin-top:0; }
+
+  details.card{ padding: 0; overflow:hidden; }
+  details.card summary{
+    list-style:none; cursor:pointer; padding: 18px 22px;
+    font-family:'Space Grotesk', sans-serif; font-size:16px; font-weight:600;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  details.card summary::-webkit-details-marker{ display:none; }
+  details.card summary::after{
+    content:'+'; color: var(--muted); font-size:20px; font-weight:400; line-height:1;
+  }
+  details.card[open] summary::after{ content:'–'; }
+  details.card summary:hover{ background: #FAFBFA; }
+  details.card .details-body{ padding: 0 22px 20px; }
+
+  @media (max-width: 700px){
+    .dash-cols{ grid-template-columns: 1fr; gap: 20px; }
+  }
+
   @media (max-width: 600px){
     .cal-day{ min-height: 54px; padding: 4px; }
     .cal-day-num{ font-size: 11px; }
@@ -257,65 +278,75 @@
       <div class="stat-card"><div class="stat-label">Próximas 7 dias</div><div class="stat-value" id="st-proximas">0</div></div>
     </div>
 
-    <div class="card">
-      <h2>Por status</h2>
-      <div id="chart-status"></div>
-      <div class="empty" id="chart-status-empty" style="display:none;">Sem atualizações cadastradas ainda.</div>
+    <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
+      <div class="stat-card"><div class="stat-label">Em dia</div><div class="stat-value" id="st-emdia" style="color: var(--green);">0</div></div>
+      <div class="stat-card"><div class="stat-label">Desatualizados</div><div class="stat-value" id="st-desatualizado" style="color: var(--danger);">0</div></div>
+      <div class="stat-card"><div class="stat-label">Incompletos</div><div class="stat-value" id="st-incompleto">0</div></div>
     </div>
 
     <div class="card">
-      <h2>Por produto</h2>
-      <div id="chart-produto"></div>
-      <div class="empty" id="chart-produto-empty" style="display:none;">Sem atualizações cadastradas ainda.</div>
-    </div>
-
-    <div class="card">
-      <h2>Status por cliente e produto</h2>
-      <p class="note" style="margin:0 0 14px;">Mostra o status mais recente de cada combinação.</p>
-      <div class="grid" style="margin-bottom:16px;">
-        <div class="field">
-          <label for="mx-cliente">Filtrar cliente</label>
-          <select id="mx-cliente" onchange="renderMatrix()"><option value="">Todos os clientes</option></select>
+      <div class="dash-cols">
+        <div>
+          <h2>Por status</h2>
+          <div id="chart-status"></div>
+          <div class="empty" id="chart-status-empty" style="display:none;">Sem atualizações cadastradas ainda.</div>
         </div>
-        <div class="field">
-          <label for="mx-produto">Filtrar produto</label>
-          <select id="mx-produto" onchange="renderMatrix()"><option value="">Todos os produtos</option></select>
+        <div>
+          <h2>Por produto</h2>
+          <div id="chart-produto"></div>
+          <div class="empty" id="chart-produto-empty" style="display:none;">Sem atualizações cadastradas ainda.</div>
         </div>
       </div>
-      <div style="overflow-x:auto;">
-        <table id="tabela-matriz">
-          <thead><tr id="matriz-head"><th>Cliente</th></tr></thead>
-          <tbody id="matriz-body"></tbody>
-        </table>
-      </div>
-      <div class="empty" id="matriz-empty" style="display:none;">Sem dados suficientes para montar a visão.</div>
     </div>
 
-    <div class="card">
-      <h2>Atualizado x Desatualizado</h2>
-      <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom:16px;">
-        <div class="stat-card"><div class="stat-label">Em dia</div><div class="stat-value" id="st-emdia" style="color: var(--green);">0</div></div>
-        <div class="stat-card"><div class="stat-label">Desatualizados</div><div class="stat-value" id="st-desatualizado" style="color: var(--danger);">0</div></div>
-        <div class="stat-card"><div class="stat-label">Incompletos</div><div class="stat-value" id="st-incompleto">0</div></div>
+    <details class="card">
+      <summary>Status por cliente e produto</summary>
+      <div class="details-body">
+        <p class="note" style="margin:0 0 14px;">Mostra o status mais recente de cada combinação.</p>
+        <div class="grid" style="margin-bottom:16px;">
+          <div class="field">
+            <label for="mx-cliente">Filtrar cliente</label>
+            <select id="mx-cliente" onchange="renderMatrix()"><option value="">Todos os clientes</option></select>
+          </div>
+          <div class="field">
+            <label for="mx-produto">Filtrar produto</label>
+            <select id="mx-produto" onchange="renderMatrix()"><option value="">Todos os produtos</option></select>
+          </div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table id="tabela-matriz">
+            <thead><tr id="matriz-head"><th>Cliente</th></tr></thead>
+            <tbody id="matriz-body"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="matriz-empty" style="display:none;">Sem dados suficientes para montar a visão.</div>
       </div>
-      <div id="chart-versoes"></div>
-      <div class="empty" id="chart-versoes-empty" style="display:none;">Nenhuma versão registrada ainda.</div>
+    </details>
 
-      <h2 style="margin-top:22px;">Por produto</h2>
-      <div class="stack-legend">
-        <span><span class="stack-dot" style="background:var(--green);"></span>Em dia</span>
-        <span><span class="stack-dot" style="background:var(--danger);"></span>Desatualizado</span>
-        <span><span class="stack-dot" style="background:var(--gray-light); border:1px solid var(--line);"></span>Incompleto</span>
+    <details class="card">
+      <summary>Versões: detalhamento por produto</summary>
+      <div class="details-body">
+        <div id="chart-versoes"></div>
+        <div class="empty" id="chart-versoes-empty" style="display:none;">Nenhuma versão registrada ainda.</div>
+
+        <h2 style="margin-top:22px;">Por produto</h2>
+        <div class="stack-legend">
+          <span><span class="stack-dot" style="background:var(--green);"></span>Em dia</span>
+          <span><span class="stack-dot" style="background:var(--danger);"></span>Desatualizado</span>
+          <span><span class="stack-dot" style="background:var(--gray-light); border:1px solid var(--line);"></span>Incompleto</span>
+        </div>
+        <div id="chart-versoes-produto"></div>
+        <div class="empty" id="chart-versoes-produto-empty" style="display:none;">Nenhuma versão registrada ainda.</div>
       </div>
-      <div id="chart-versoes-produto"></div>
-      <div class="empty" id="chart-versoes-produto-empty" style="display:none;">Nenhuma versão registrada ainda.</div>
-    </div>
+    </details>
 
-    <div class="card">
-      <h2>Próximas atualizações</h2>
-      <div id="dash-proximas" class="sched-list"></div>
-      <div class="empty" id="dash-proximas-empty" style="display:none;">Nenhuma atualização futura agendada.</div>
-    </div>
+    <details class="card">
+      <summary>Próximas atualizações</summary>
+      <div class="details-body">
+        <div id="dash-proximas" class="sched-list"></div>
+        <div class="empty" id="dash-proximas-empty" style="display:none;">Nenhuma atualização futura agendada.</div>
+      </div>
+    </details>
   </section>
 
   <section class="panel" id="panel-calendario">
