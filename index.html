@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agenda de Atualizações</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg: #EEF1EF;
+    --paper: #FFFFFF;
+    --ink: #1C2A28;
+    --muted: #5B6B67;
+    --line: #DCE2DF;
+    --teal: #2E6B5E;
+    --teal-dark: #1E4A41;
+    --ochre: #B9832E;
+    --ochre-light: #F3E4C7;
+    --danger: #B0432E;
+    --danger-light: #F6DFD8;
+    --blue: #2F5F8A;
+    --blue-light: #DCE7F0;
+    --green: #3D7A3F;
+    --green-light: #DFEEDE;
+    --gray-light: #E7E9E7;
+    --radius: 10px;
+  }
+  *{ box-sizing: border-box; }
+  body{
+    margin:0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'IBM Plex Sans', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap{ max-width: 920px; margin: 0 auto; padding: 32px 20px 80px; }
+  header{ margin-bottom: 28px; }
+  h1{
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 28px;
+    font-weight: 600;
+    margin: 0 0 4px;
+    letter-spacing: -0.01em;
+  }
+  header p{ margin:0; color: var(--muted); font-size: 14.5px; }
+
+  #config-banner{
+    background: var(--danger-light); border:1px solid var(--danger); color:#7A2E1D;
+    padding: 14px 16px; border-radius: 10px; margin-bottom: 22px; font-size: 13.5px; display:none;
+  }
+  #config-banner code{ background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 4px; }
+
+  nav.tabs{
+    display:flex;
+    gap: 4px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 4px;
+    margin-bottom: 24px;
+    width: fit-content;
+    flex-wrap: wrap;
+  }
+  nav.tabs button{
+    border:none;
+    background:transparent;
+    padding: 9px 16px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--muted);
+    border-radius: 7px;
+    cursor:pointer;
+  }
+  nav.tabs button.active{
+    background: var(--teal);
+    color: #fff;
+  }
+
+  section.panel{ display:none; }
+  section.panel.active{ display:block; }
+
+  .card{
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px 22px;
+    margin-bottom: 20px;
+  }
+  .card h2{
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0 0 16px;
+  }
+
+  .grid{ display:grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; }
+  .field{ display:flex; flex-direction:column; gap: 5px; }
+  .field.full{ grid-column: 1 / -1; }
+  label{ font-size: 12.5px; color: var(--muted); font-weight:500; }
+  input, select, textarea{
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+    padding: 9px 10px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: #FBFCFB;
+    color: var(--ink);
+  }
+  input:focus, select:focus, textarea:focus{
+    outline: none;
+    border-color: var(--teal);
+    box-shadow: 0 0 0 3px rgba(46,107,94,0.12);
+  }
+  .actions{ margin-top: 16px; display:flex; gap: 10px; align-items:center; }
+  button.primary{
+    background: var(--teal);
+    color: #fff;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 7px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: 'IBM Plex Sans', sans-serif;
+  }
+  button.primary:hover{ background: var(--teal-dark); }
+  button.primary:disabled{ opacity: 0.6; cursor: default; }
+  .error-msg{ font-size: 13px; color: var(--danger); display:none; }
+  .success-msg{ font-size: 13px; color: var(--green); display:none; }
+
+  table{ width:100%; border-collapse: collapse; font-size: 13.5px; }
+  th{ text-align:left; color: var(--muted); font-weight:500; font-size:12px; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  td{ padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td{ border-bottom: none; }
+  .empty{ color: var(--muted); font-size: 13.5px; padding: 10px 4px; }
+  .del{ border:none; background:none; color: var(--muted); cursor:pointer; font-size: 13px; }
+  .del:hover{ color: var(--danger); }
+
+  .sched-list{ display:flex; flex-direction:column; gap: 10px; }
+  .sched-item{
+    display:flex; justify-content:space-between; align-items:flex-start;
+    border: 1px solid var(--line); border-radius: 9px; padding: 12px 14px;
+    gap: 12px;
+  }
+  .sched-date{
+    font-family:'Space Grotesk', sans-serif; font-weight:600; font-size: 14px;
+    background: var(--ochre-light); color: #6E4D14; padding: 4px 10px; border-radius: 6px;
+    white-space: nowrap; text-align:center;
+  }
+  .sched-body{ flex:1; min-width: 0; }
+  .sched-title{ font-weight:500; font-size: 14.5px; margin-bottom:2px; }
+  .sched-sub{ color: var(--muted); font-size: 13px; }
+  .sched-note{ color: var(--ink); font-size: 13px; margin-top: 6px; }
+  .sched-right{ display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
+
+  .badge{ font-size: 12px; font-weight: 500; padding: 3px 9px; border-radius: 20px; white-space: nowrap; }
+  .badge-pendente{ background: var(--gray-light); color: #4B4B48; }
+  .badge-agendada{ background: var(--blue-light); color: var(--blue); }
+  .badge-andamento{ background: var(--ochre-light); color: #6E4D14; }
+  .badge-concluida{ background: var(--green-light); color: var(--green); }
+  .badge-cancelada{ background: var(--danger-light); color: var(--danger); }
+  select.status-select{ font-size: 12.5px; padding: 5px 7px; border-radius: 6px; }
+
+  .note{ font-size: 12.5px; color: var(--muted); margin-top: 6px; }
+  .prod-chip{
+    display:inline-flex; align-items:center; gap:8px;
+    background: var(--paper); border:1px solid var(--line); border-radius: 8px;
+    padding: 8px 12px; font-size: 13.5px; font-weight:500;
+  }
+  .prod-list{ display:flex; flex-wrap:wrap; gap: 10px; }
+
+  .stats-grid{ display:grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 4px; }
+  .stat-card{ background: var(--paper); border:1px solid var(--line); border-radius: 12px; padding: 16px; text-align:left; }
+  .stat-label{ font-size: 12.5px; color: var(--muted); margin-bottom: 6px; }
+  .stat-value{ font-family:'Space Grotesk', sans-serif; font-size: 26px; font-weight:600; }
+
+  .bar-row{ display:flex; align-items:center; gap: 10px; margin-bottom: 10px; }
+  .bar-label{ width: 130px; font-size: 13px; color: var(--muted); flex-shrink:0; }
+  .bar-track{ flex:1; background: var(--gray-light); border-radius: 6px; height: 14px; overflow:hidden; }
+  .bar-fill{ height:100%; border-radius: 6px; }
+  .bar-value{ width: 28px; text-align:right; font-size: 13px; font-weight:500; flex-shrink:0; }
+
+  #tabela-matriz td, #tabela-matriz th{ text-align:center; white-space:nowrap; }
+  #tabela-matriz td:first-child, #tabela-matriz th:first-child{ text-align:left; font-weight:500; }
+  .cell-empty{ color: var(--muted); font-size: 12.5px; }
+
+  @media (max-width: 600px){
+    .grid{ grid-template-columns: 1fr; }
+    .stats-grid{ grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Agenda de atualizações</h1>
+    <p>Cadastre clientes, GPs e produtos, e organizem juntos as atualizações.</p>
+  </header>
+
+  <div id="config-banner">
+    ⚠️ Configure as credenciais do Supabase no início do arquivo (<code>SUPABASE_URL</code> e <code>SUPABASE_ANON_KEY</code>) para a página funcionar.
+  </div>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+    <button class="tab-btn" data-tab="agenda">Agenda</button>
+    <button class="tab-btn" data-tab="clientes">Clientes</button>
+    <button class="tab-btn" data-tab="gps">GPs</button>
+    <button class="tab-btn" data-tab="produtos">Produtos</button>
+  </nav>
+
+  <section class="panel" id="panel-dashboard">
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-label">Clientes</div><div class="stat-value" id="st-clientes">0</div></div>
+      <div class="stat-card"><div class="stat-label">GPs</div><div class="stat-value" id="st-gps">0</div></div>
+      <div class="stat-card"><div class="stat-label">Atualizações totais</div><div class="stat-value" id="st-total">0</div></div>
+      <div class="stat-card"><div class="stat-label">Próximas 7 dias</div><div class="stat-value" id="st-proximas">0</div></div>
+    </div>
+
+    <div class="card">
+      <h2>Por status</h2>
+      <div id="chart-status"></div>
+      <div class="empty" id="chart-status-empty" style="display:none;">Sem atualizações cadastradas ainda.</div>
+    </div>
+
+    <div class="card">
+      <h2>Por produto</h2>
+      <div id="chart-produto"></div>
+      <div class="empty" id="chart-produto-empty" style="display:none;">Sem atualizações cadastradas ainda.</div>
+    </div>
+
+    <div class="card">
+      <h2>Status por cliente e produto</h2>
+      <p class="note" style="margin:0 0 14px;">Mostra o status mais recente de cada combinação.</p>
+      <div class="grid" style="margin-bottom:16px;">
+        <div class="field">
+          <label for="mx-cliente">Filtrar cliente</label>
+          <select id="mx-cliente" onchange="renderMatrix()"><option value="">Todos os clientes</option></select>
+        </div>
+        <div class="field">
+          <label for="mx-produto">Filtrar produto</label>
+          <select id="mx-produto" onchange="renderMatrix()"><option value="">Todos os produtos</option></select>
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table id="tabela-matriz">
+          <thead><tr id="matriz-head"><th>Cliente</th></tr></thead>
+          <tbody id="matriz-body"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="matriz-empty" style="display:none;">Sem dados suficientes para montar a visão.</div>
+    </div>
+
+    <div class="card">
+      <h2>Próximas atualizações</h2>
+      <div id="dash-proximas" class="sched-list"></div>
+      <div class="empty" id="dash-proximas-empty" style="display:none;">Nenhuma atualização futura agendada.</div>
+    </div>
+  </section>
+
+  <section class="panel active" id="panel-agenda">
+    <div class="card">
+      <h2>Agendar atualização</h2>
+      <div class="grid">
+        <div class="field">
+          <label for="ag-cliente">Cliente</label>
+          <select id="ag-cliente"></select>
+        </div>
+        <div class="field">
+          <label for="ag-gp">GP responsável</label>
+          <select id="ag-gp"></select>
+        </div>
+        <div class="field">
+          <label for="ag-produto">Produto</label>
+          <select id="ag-produto"></select>
+        </div>
+        <div class="field">
+          <label for="ag-status">Status</label>
+          <select id="ag-status">
+            <option value="pendente">Pendente</option>
+            <option value="agendada" selected>Agendada</option>
+            <option value="andamento">Em andamento</option>
+            <option value="concluida">Concluída</option>
+            <option value="cancelada">Cancelada</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="ag-data">Data</label>
+          <input type="date" id="ag-data">
+        </div>
+        <div class="field">
+          <label for="ag-hora">Horário</label>
+          <input type="time" id="ag-hora">
+        </div>
+        <div class="field full">
+          <label for="ag-obs">Observação (opcional)</label>
+          <textarea id="ag-obs" rows="2" placeholder="Pauta, link da reunião, contexto..."></textarea>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="primary" id="btn-agendamento" onclick="criarAgendamento()">Agendar atualização</button>
+        <span class="error-msg" id="ag-error"></span>
+        <span class="success-msg" id="ag-success">Atualização agendada.</span>
+      </div>
+      <p class="note" id="ag-hint"></p>
+    </div>
+
+    <div class="card">
+      <h2>Todas as atualizações</h2>
+      <div class="grid" style="margin-bottom:16px;">
+        <div class="field">
+          <label for="fl-cliente">Cliente</label>
+          <select id="fl-cliente" onchange="renderAgenda()"><option value="">Todos</option></select>
+        </div>
+        <div class="field">
+          <label for="fl-gp">GP</label>
+          <select id="fl-gp" onchange="renderAgenda()"><option value="">Todos</option></select>
+        </div>
+        <div class="field">
+          <label for="fl-produto">Produto</label>
+          <select id="fl-produto" onchange="renderAgenda()"><option value="">Todos</option></select>
+        </div>
+        <div class="field">
+          <label for="fl-status">Status</label>
+          <select id="fl-status" onchange="renderAgenda()">
+            <option value="">Todos</option>
+            <option value="pendente">Pendente</option>
+            <option value="agendada">Agendada</option>
+            <option value="andamento">Em andamento</option>
+            <option value="concluida">Concluída</option>
+            <option value="cancelada">Cancelada</option>
+          </select>
+        </div>
+      </div>
+      <div id="lista-agenda" class="sched-list"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-clientes">
+    <div class="card">
+      <h2>Novo cliente</h2>
+      <div class="grid">
+        <div class="field full">
+          <label for="cl-nome">Nome</label>
+          <input type="text" id="cl-nome" placeholder="Nome do cliente">
+        </div>
+      </div>
+      <div class="actions">
+        <button class="primary" id="btn-cliente" onclick="criarCliente()">Cadastrar cliente</button>
+        <span class="error-msg" id="cl-error"></span>
+        <span class="success-msg" id="cl-success">Cliente cadastrado.</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Clientes cadastrados</h2>
+      <table id="tabela-clientes">
+        <thead><tr><th>Nome</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="empty" id="clientes-empty" style="display:none;">Nenhum cliente cadastrado ainda.</div>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-gps">
+    <div class="card">
+      <h2>Novo GP</h2>
+      <div class="grid">
+        <div class="field">
+          <label for="gp-nome">Nome</label>
+          <input type="text" id="gp-nome" placeholder="Nome do GP">
+        </div>
+        <div class="field">
+          <label for="gp-email">Email</label>
+          <input type="email" id="gp-email" placeholder="nome@empresa.com">
+        </div>
+      </div>
+      <div class="actions">
+        <button class="primary" id="btn-gp" onclick="criarGP()">Cadastrar GP</button>
+        <span class="error-msg" id="gp-error"></span>
+        <span class="success-msg" id="gp-success">GP cadastrado.</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>GPs cadastrados</h2>
+      <table id="tabela-gps">
+        <thead><tr><th>Nome</th><th>Email</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="empty" id="gps-empty" style="display:none;">Nenhum GP cadastrado ainda.</div>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-produtos">
+    <div class="card">
+      <h2>Novo produto</h2>
+      <div class="grid">
+        <div class="field full">
+          <label for="pr-nome">Nome do produto</label>
+          <input type="text" id="pr-nome" placeholder="Ex: PDV, Visual Store, Integração, Cliente NFC-e">
+        </div>
+      </div>
+      <div class="actions">
+        <button class="primary" id="btn-produto" onclick="criarProduto()">Cadastrar produto</button>
+        <span class="error-msg" id="pr-error"></span>
+        <span class="success-msg" id="pr-success">Produto cadastrado.</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Produtos cadastrados</h2>
+      <div id="lista-produtos" class="prod-list"></div>
+      <div class="empty" id="produtos-empty" style="display:none;">Nenhum produto cadastrado ainda.</div>
+    </div>
+  </section>
+</div>
+
+<script>
+/* ======================================================
+   1) COLE AQUI AS CREDENCIAIS DO SEU PROJETO SUPABASE
+   Settings -> API -> Project URL / anon public key
+====================================================== */
+const SUPABASE_URL = "COLE_AQUI_SUA_PROJECT_URL";
+const SUPABASE_ANON_KEY = "COLE_AQUI_SUA_ANON_KEY";
+/* ====================================================== */
+
+let supabase = null;
+if(SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 20){
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+} else {
+  document.getElementById('config-banner').style.display = 'block';
+}
+
+let clientes = [];
+let gps = [];
+let produtos = [];
+let agendamentos = [];
+
+const STATUS_LABELS = {
+  pendente: 'Pendente', agendada: 'Agendada', andamento: 'Em andamento',
+  concluida: 'Concluída', cancelada: 'Cancelada'
+};
+const STATUS_BADGE_CLASS = {
+  pendente: 'badge-pendente', agendada: 'badge-agendada', andamento: 'badge-andamento',
+  concluida: 'badge-concluida', cancelada: 'badge-cancelada'
+};
+const STATUS_BAR_COLOR = {
+  pendente: '#9A9A94', agendada: '#2F5F8A', andamento: '#B9832E',
+  concluida: '#3D7A3F', cancelada: '#B0432E'
+};
+const PRODUTO_COLORS = ['#2E6B5E', '#B9832E', '#2F5F8A', '#96524A', '#5B6B67', '#3D7A3F'];
+
+function ordenarPorNome(lista){
+  return [...lista].sort((a,b)=> a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
+}
+function escapeHtml(str){
+  if(str === undefined || str === null) return '';
+  return String(str).replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+}
+function mostrarSucesso(id){
+  const el = document.getElementById(id);
+  el.style.display = 'inline';
+  setTimeout(()=>{ el.style.display = 'none'; }, 2500);
+}
+function mostrarErro(id, texto){
+  const el = document.getElementById(id);
+  el.textContent = texto;
+  el.style.display = 'inline';
+}
+function esconderErro(id){ document.getElementById(id).style.display = 'none'; }
+
+async function loadAll(){
+  if(!supabase) return;
+  const [c, g, p, a] = await Promise.all([
+    supabase.from('clientes').select('*'),
+    supabase.from('gps').select('*'),
+    supabase.from('produtos').select('*'),
+    supabase.from('agendamentos').select('*')
+  ]);
+  clientes = c.data || [];
+  gps = g.data || [];
+  produtos = p.data || [];
+  agendamentos = (a.data || []).map(x=>({
+    id: x.id, clienteId: x.cliente_id, gpId: x.gp_id, produtoId: x.produto_id,
+    data: x.data, hora: (x.hora||'').slice(0,5), status: x.status, obs: x.obs
+  }));
+  renderClientes();
+  renderGPs();
+  renderProdutos();
+  renderAgendaSelects();
+  renderAgenda();
+  renderDashboard();
+}
+
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+    if(btn.dataset.tab === 'dashboard') renderDashboard();
+  });
+});
+
+function renderClientes(){
+  const tbody = document.querySelector('#tabela-clientes tbody');
+  tbody.innerHTML = '';
+  document.getElementById('clientes-empty').style.display = clientes.length ? 'none' : 'block';
+  ordenarPorNome(clientes).forEach(c=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${escapeHtml(c.nome)}</td><td><button class="del" onclick="removerCliente('${c.id}')">Remover</button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderGPs(){
+  const tbody = document.querySelector('#tabela-gps tbody');
+  tbody.innerHTML = '';
+  document.getElementById('gps-empty').style.display = gps.length ? 'none' : 'block';
+  ordenarPorNome(gps).forEach(g=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${escapeHtml(g.nome)}</td><td>${escapeHtml(g.email||'—')}</td><td><button class="del" onclick="removerGP('${g.id}')">Remover</button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderProdutos(){
+  const list = document.getElementById('lista-produtos');
+  list.innerHTML = '';
+  document.getElementById('produtos-empty').style.display = produtos.length ? 'none' : 'block';
+  produtos.forEach(p=>{
+    const chip = document.createElement('div');
+    chip.className = 'prod-chip';
+    chip.innerHTML = `${escapeHtml(p.nome)} <button class="del" onclick="removerProduto('${p.id}')">Remover</button>`;
+    list.appendChild(chip);
+  });
+}
+
+function renderAgendaSelects(){
+  const clientesOrd = ordenarPorNome(clientes);
+  const gpsOrd = ordenarPorNome(gps);
+
+  const selCliente = document.getElementById('ag-cliente');
+  const selGP = document.getElementById('ag-gp');
+  const selProduto = document.getElementById('ag-produto');
+  selCliente.innerHTML = clientesOrd.length ? clientesOrd.map(c=>`<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('') : '<option value="">Nenhum cliente cadastrado</option>';
+  selGP.innerHTML = gpsOrd.length ? gpsOrd.map(g=>`<option value="${g.id}">${escapeHtml(g.nome)}</option>`).join('') : '<option value="">Nenhum GP cadastrado</option>';
+  selProduto.innerHTML = produtos.length ? produtos.map(p=>`<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join('') : '<option value="">Nenhum produto cadastrado</option>';
+
+  const hint = document.getElementById('ag-hint');
+  hint.textContent = (!clientes.length || !gps.length || !produtos.length) ? 'Cadastre pelo menos um cliente, um GP e um produto antes de agendar.' : '';
+
+  const mxCliente = document.getElementById('mx-cliente');
+  const mxProduto = document.getElementById('mx-produto');
+  const mxC = mxCliente.value, mxP = mxProduto.value;
+  mxCliente.innerHTML = '<option value="">Todos os clientes</option>' + clientesOrd.map(c=>`<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('');
+  mxProduto.innerHTML = '<option value="">Todos os produtos</option>' + produtos.map(p=>`<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join('');
+  mxCliente.value = mxC; mxProduto.value = mxP;
+
+  const flCliente = document.getElementById('fl-cliente');
+  const flGP = document.getElementById('fl-gp');
+  const flProduto = document.getElementById('fl-produto');
+  const flC = flCliente.value, flG = flGP.value, flP = flProduto.value;
+  flCliente.innerHTML = '<option value="">Todos</option>' + clientesOrd.map(c=>`<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('');
+  flGP.innerHTML = '<option value="">Todos</option>' + gpsOrd.map(g=>`<option value="${g.id}">${escapeHtml(g.nome)}</option>`).join('');
+  flProduto.innerHTML = '<option value="">Todos</option>' + produtos.map(p=>`<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join('');
+  flCliente.value = flC; flGP.value = flG; flProduto.value = flP;
+}
+
+function formatarData(iso){
+  const [y,m,d] = iso.split('-');
+  return `${d}/${m}`;
+}
+
+function buildSchedItem(item, editableStatus){
+  const cliente = clientes.find(c=>c.id===item.clienteId);
+  const gp = gps.find(g=>g.id===item.gpId);
+  const produto = produtos.find(p=>p.id===item.produtoId);
+  const status = item.status || 'pendente';
+  const div = document.createElement('div');
+  div.className = 'sched-item';
+  const dataFmt = formatarData(item.data);
+
+  let statusHtml;
+  if(editableStatus){
+    statusHtml = `<select class="status-select ${STATUS_BADGE_CLASS[status]}" onchange="mudarStatus('${item.id}', this.value)">
+      ${Object.keys(STATUS_LABELS).map(k=>`<option value="${k}" ${k===status?'selected':''}>${STATUS_LABELS[k]}</option>`).join('')}
+    </select>`;
+  } else {
+    statusHtml = `<span class="badge ${STATUS_BADGE_CLASS[status]}">${STATUS_LABELS[status]}</span>`;
+  }
+
+  div.innerHTML = `
+    <div class="sched-date">${dataFmt}<br>${item.hora||''}</div>
+    <div class="sched-body">
+      <div class="sched-title">${escapeHtml(cliente ? cliente.nome : 'Cliente removido')} + ${escapeHtml(gp ? gp.nome : 'GP removido')}</div>
+      <div class="sched-sub">${escapeHtml(produto ? produto.nome : 'Produto removido')}</div>
+      ${item.obs ? `<div class="sched-note">${escapeHtml(item.obs)}</div>` : ''}
+    </div>
+    <div class="sched-right">
+      ${statusHtml}
+      <button class="del" onclick="removerAgendamento('${item.id}')">Remover</button>
+    </div>
+  `;
+  return div;
+}
+
+function renderAgenda(){
+  const list = document.getElementById('lista-agenda');
+  list.innerHTML = '';
+  if(!agendamentos.length){
+    list.innerHTML = '<div class="empty">Nenhuma atualização agendada ainda.</div>';
+    return;
+  }
+  const flCliente = document.getElementById('fl-cliente').value;
+  const flGP = document.getElementById('fl-gp').value;
+  const flProduto = document.getElementById('fl-produto').value;
+  const flStatus = document.getElementById('fl-status').value;
+
+  const filtrados = agendamentos.filter(a=>{
+    if(flCliente && a.clienteId !== flCliente) return false;
+    if(flGP && a.gpId !== flGP) return false;
+    if(flProduto && a.produtoId !== flProduto) return false;
+    if(flStatus && (a.status||'pendente') !== flStatus) return false;
+    return true;
+  });
+
+  if(!filtrados.length){
+    list.innerHTML = '<div class="empty">Nenhuma atualização encontrada para esse filtro.</div>';
+    return;
+  }
+
+  const ordenados = [...filtrados].sort((a,b)=> (a.data+a.hora).localeCompare(b.data+b.hora));
+  ordenados.forEach(item=> list.appendChild(buildSchedItem(item, true)));
+}
+
+function ultimoStatus(clienteId, produtoId){
+  const relevantes = agendamentos.filter(a=>a.clienteId===clienteId && a.produtoId===produtoId);
+  if(!relevantes.length) return null;
+  relevantes.sort((a,b)=> (b.data+b.hora).localeCompare(a.data+a.hora));
+  return relevantes[0];
+}
+
+function renderMatrix(){
+  const filtroCliente = document.getElementById('mx-cliente').value;
+  const filtroProduto = document.getElementById('mx-produto').value;
+  const clientesFiltrados = ordenarPorNome(filtroCliente ? clientes.filter(c=>c.id===filtroCliente) : clientes);
+  const produtosFiltrados = filtroProduto ? produtos.filter(p=>p.id===filtroProduto) : produtos;
+
+  const head = document.getElementById('matriz-head');
+  const body = document.getElementById('matriz-body');
+  const empty = document.getElementById('matriz-empty');
+
+  if(!clientesFiltrados.length || !produtosFiltrados.length){
+    head.innerHTML = '<th>Cliente</th>';
+    body.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  head.innerHTML = '<th>Cliente</th>' + produtosFiltrados.map(p=>`<th>${escapeHtml(p.nome)}</th>`).join('');
+  body.innerHTML = '';
+  clientesFiltrados.forEach(c=>{
+    const tr = document.createElement('tr');
+    let cells = `<td>${escapeHtml(c.nome)}</td>`;
+    produtosFiltrados.forEach(p=>{
+      const ultimo = ultimoStatus(c.id, p.id);
+      cells += ultimo
+        ? `<td><span class="badge ${STATUS_BADGE_CLASS[ultimo.status||'pendente']}">${STATUS_LABELS[ultimo.status||'pendente']}</span></td>`
+        : `<td><span class="cell-empty">—</span></td>`;
+    });
+    tr.innerHTML = cells;
+    body.appendChild(tr);
+  });
+}
+
+function renderDashboard(){
+  document.getElementById('st-clientes').textContent = clientes.length;
+  document.getElementById('st-gps').textContent = gps.length;
+  document.getElementById('st-total').textContent = agendamentos.length;
+  renderMatrix();
+
+  const agora = new Date();
+  const em7dias = new Date(agora.getTime() + 7*24*60*60*1000);
+  const proximas = agendamentos.filter(a=>{
+    const dt = new Date(a.data + 'T' + (a.hora||'00:00'));
+    return dt >= agora && dt <= em7dias;
+  }).sort((a,b)=> (a.data+a.hora).localeCompare(b.data+b.hora));
+  document.getElementById('st-proximas').textContent = proximas.length;
+
+  const statusChart = document.getElementById('chart-status');
+  const statusEmpty = document.getElementById('chart-status-empty');
+  statusChart.innerHTML = '';
+  if(!agendamentos.length){
+    statusEmpty.style.display = 'block';
+  } else {
+    statusEmpty.style.display = 'none';
+    const counts = {};
+    Object.keys(STATUS_LABELS).forEach(k=>counts[k]=0);
+    agendamentos.forEach(a=>{ counts[a.status||'pendente']++; });
+    const max = Math.max(...Object.values(counts), 1);
+    Object.keys(STATUS_LABELS).forEach(k=>{
+      const row = document.createElement('div');
+      row.className = 'bar-row';
+      row.innerHTML = `<div class="bar-label">${STATUS_LABELS[k]}</div><div class="bar-track"><div class="bar-fill" style="width:${(counts[k]/max*100)}%; background:${STATUS_BAR_COLOR[k]};"></div></div><div class="bar-value">${counts[k]}</div>`;
+      statusChart.appendChild(row);
+    });
+  }
+
+  const prodChart = document.getElementById('chart-produto');
+  const prodEmpty = document.getElementById('chart-produto-empty');
+  prodChart.innerHTML = '';
+  if(!agendamentos.length){
+    prodEmpty.style.display = 'block';
+  } else {
+    prodEmpty.style.display = 'none';
+    const counts = {};
+    produtos.forEach(p=>counts[p.id]=0);
+    agendamentos.forEach(a=>{ if(counts[a.produtoId] !== undefined) counts[a.produtoId]++; });
+    const max = Math.max(...Object.values(counts), 1);
+    produtos.forEach((p, idx)=>{
+      const row = document.createElement('div');
+      row.className = 'bar-row';
+      row.innerHTML = `<div class="bar-label">${escapeHtml(p.nome)}</div><div class="bar-track"><div class="bar-fill" style="width:${(counts[p.id]/max*100)}%; background:${PRODUTO_COLORS[idx % PRODUTO_COLORS.length]};"></div></div><div class="bar-value">${counts[p.id]}</div>`;
+      prodChart.appendChild(row);
+    });
+  }
+
+  const dashList = document.getElementById('dash-proximas');
+  const dashEmpty = document.getElementById('dash-proximas-empty');
+  dashList.innerHTML = '';
+  if(!proximas.length){
+    dashEmpty.style.display = 'block';
+  } else {
+    dashEmpty.style.display = 'none';
+    proximas.forEach(item=> dashList.appendChild(buildSchedItem(item, false)));
+  }
+}
+
+async function criarCliente(){
+  const nome = document.getElementById('cl-nome').value.trim();
+  if(!nome){ mostrarErro('cl-error', 'Informe o nome do cliente.'); return; }
+  esconderErro('cl-error');
+  const btn = document.getElementById('btn-cliente');
+  btn.disabled = true;
+  const { error } = await supabase.from('clientes').insert({ nome });
+  btn.disabled = false;
+  if(error){ mostrarErro('cl-error', 'Não foi possível salvar. Tente novamente.'); console.error(error); return; }
+  document.getElementById('cl-nome').value = '';
+  mostrarSucesso('cl-success');
+  await loadAll();
+}
+
+async function removerCliente(id){
+  const { error } = await supabase.from('clientes').delete().eq('id', id);
+  if(error){ alert('Não foi possível remover o cliente.'); console.error(error); return; }
+  await loadAll();
+}
+
+async function criarGP(){
+  const nome = document.getElementById('gp-nome').value.trim();
+  const email = document.getElementById('gp-email').value.trim();
+  if(!nome){ mostrarErro('gp-error', 'Informe o nome do GP.'); return; }
+  esconderErro('gp-error');
+  const btn = document.getElementById('btn-gp');
+  btn.disabled = true;
+  const { error } = await supabase.from('gps').insert({ nome, email });
+  btn.disabled = false;
+  if(error){ mostrarErro('gp-error', 'Não foi possível salvar. Tente novamente.'); console.error(error); return; }
+  document.getElementById('gp-nome').value = '';
+  document.getElementById('gp-email').value = '';
+  mostrarSucesso('gp-success');
+  await loadAll();
+}
+
+async function removerGP(id){
+  const { error } = await supabase.from('gps').delete().eq('id', id);
+  if(error){ alert('Não foi possível remover o GP.'); console.error(error); return; }
+  await loadAll();
+}
+
+async function criarProduto(){
+  const nome = document.getElementById('pr-nome').value.trim();
+  if(!nome){ mostrarErro('pr-error', 'Informe o nome do produto.'); return; }
+  esconderErro('pr-error');
+  const btn = document.getElementById('btn-produto');
+  btn.disabled = true;
+  const { error } = await supabase.from('produtos').insert({ nome });
+  btn.disabled = false;
+  if(error){ mostrarErro('pr-error', 'Não foi possível salvar. Tente novamente.'); console.error(error); return; }
+  document.getElementById('pr-nome').value = '';
+  mostrarSucesso('pr-success');
+  await loadAll();
+}
+
+async function removerProduto(id){
+  const { error } = await supabase.from('produtos').delete().eq('id', id);
+  if(error){ alert('Não foi possível remover o produto.'); console.error(error); return; }
+  await loadAll();
+}
+
+async function criarAgendamento(){
+  const clienteId = document.getElementById('ag-cliente').value;
+  const gpId = document.getElementById('ag-gp').value;
+  const produtoId = document.getElementById('ag-produto').value;
+  const status = document.getElementById('ag-status').value;
+  const data = document.getElementById('ag-data').value;
+  const hora = document.getElementById('ag-hora').value;
+  const obs = document.getElementById('ag-obs').value.trim();
+  if(!clienteId || !gpId || !produtoId || !data || !hora){
+    mostrarErro('ag-error', 'Selecione cliente, GP, produto, data e horário.');
+    return;
+  }
+  esconderErro('ag-error');
+  const btn = document.getElementById('btn-agendamento');
+  btn.disabled = true;
+  const { error } = await supabase.from('agendamentos').insert({
+    cliente_id: clienteId, gp_id: gpId, produto_id: produtoId, status, data, hora, obs
+  });
+  btn.disabled = false;
+  if(error){ mostrarErro('ag-error', 'Não foi possível salvar. Tente novamente.'); console.error(error); return; }
+  document.getElementById('ag-data').value = '';
+  document.getElementById('ag-hora').value = '';
+  document.getElementById('ag-obs').value = '';
+  document.getElementById('ag-status').value = 'agendada';
+  mostrarSucesso('ag-success');
+  await loadAll();
+}
+
+async function mudarStatus(id, novoStatus){
+  const { error } = await supabase.from('agendamentos').update({ status: novoStatus }).eq('id', id);
+  if(error){ alert('Não foi possível atualizar o status.'); console.error(error); return; }
+  await loadAll();
+}
+
+async function removerAgendamento(id){
+  const { error } = await supabase.from('agendamentos').delete().eq('id', id);
+  if(error){ alert('Não foi possível remover a atualização.'); console.error(error); return; }
+  await loadAll();
+}
+
+loadAll();
+</script>
+</body>
+</html>
